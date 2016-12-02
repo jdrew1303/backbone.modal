@@ -56,6 +56,20 @@ describe 'Backbone.Modal', ->
     it "#length should return the length of the total views", ->
       expect(view.views.length).toEqual(3)
 
+  describe '#destroy', ->
+    it 'should restore focus to previously focused element', ->
+      $prevFocus = Backbone.$('<button id="prev-focus">')
+      Backbone.$('body').append($prevFocus)
+      Backbone.$('#prev-focus').focus()
+
+      view = new modal()
+      view.animate = false
+      view.render()
+      view.destroy()
+
+      expect(document.activeElement.id).toEqual('prev-focus')
+      Backbone.$('#prev-focus').remove()
+
   describe '#openAt', ->
     it 'opens a view at the specified index', ->
       view = new modal()
@@ -85,6 +99,29 @@ describe 'Backbone.Modal', ->
       view = new modal()
       expect((view.render().el instanceof HTMLElement)).toBeTruthy()
 
+    it 'should save a reference to the previously focused element', ->
+      expected = Backbone.$(document.activeElement)
+      view = new modal()
+      view.render()
+      expect(view.previousFocus).toEqual(expected)
+
+    it 'should focus modal div', ->
+      view = new modal()
+      view.animate = false
+      Backbone.$('body').append(view.$el)
+      view.render()
+      expect(document.activeElement).toBe(view.modalEl.get(0))
+
+    it 'should return early if already rendered', ->
+      view = new modal()
+      view.animate = false
+      view.render()
+      spyOn(view, 'delegateModalEvents')
+      spyOn(view, 'rendererCompleted')
+      view.render()
+      expect(view.delegateModalEvents).not.toHaveBeenCalled()
+      expect(view.rendererCompleted).not.toHaveBeenCalled()
+
   describe '#beforeCancel', ->
     it "should call this method when it's defined", ->
       view = new modal()
@@ -105,6 +142,12 @@ describe 'Backbone.Modal', ->
       spyOn(view, 'cancel')
       view.render().$(view.cancelEl).click()
       expect(view.cancel).toHaveBeenCalled()
+
+  describe '#triggerSubmit', ->
+    it 'should not throw when called without an event', ->
+      view = new modal()
+      view.render()
+      expect(view.triggerSubmit).not.toThrow()
 
   describe '#beforeSubmit', ->
     it "should call this method when it's defined", ->
@@ -130,4 +173,21 @@ describe 'Backbone.Modal', ->
   describe '#clickOutside', ->
     it 'should not throw when outsideElement is undefined', ->
       view = new modal()
-      expect(view.clickOutside).not.toThrow();
+      expect(view.clickOutside).not.toThrow()
+
+  describe '#blurModal', ->
+    it 'should refocus modal if modal is active and loses focus', (done) ->
+      $newFocus = Backbone.$('<button id="new-focus">')
+      Backbone.$('body').append($newFocus)
+
+      view = new modal()
+      view.animate = false
+      view.render()
+      Backbone.$('#new-focus').focus()
+
+      setTimeout ->
+        expect(document.activeElement).toEqual(view.modalEl.get(0))
+        Backbone.$('#new-focus').remove()
+        done()
+      , 10
+

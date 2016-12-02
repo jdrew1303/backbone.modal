@@ -26,9 +26,11 @@
       options = 0 if !options or _.isEmpty(options)
 
       @$el.addClass("#{@prefix}-wrapper")
-      @modalEl = Backbone.$('<div />').addClass("#{@prefix}-modal")
+      @modalEl = Backbone.$('<div />')
+      @modalEl.addClass("#{@prefix}-modal").attr('tabindex', '-1')
       @modalEl.html @buildTemplate(@template, data) if @template
       @$el.html(@modalEl)
+      @modalEl.after(Backbone.$('<div tabindex="0" />'))
 
       if @viewContainer
         @viewContainerEl = @modalEl.find(@viewContainer)
@@ -36,11 +38,13 @@
       else
         @viewContainerEl = @modalEl
 
-      # blur links to prevent double keystroke events
-      Backbone.$(':focus').blur()
+      $focusEl = Backbone.$(document.activeElement)
+      @previousFocus = $focusEl unless @previousFocus
 
       @openAt(options) if @views?.length > 0 and @showViewOnRender
       @onRender?()
+
+      return true if @active
 
       @delegateModalEvents()
 
@@ -63,6 +67,7 @@
         @$el.on('click.bbm', @clickOutside)
 
       @modalEl.css(opacity: 1).addClass("#{@prefix}-modal--open")
+      @modalEl.focus()
       @onShow?()
       @currentView?.onShow?()
 
@@ -105,6 +110,7 @@
       # set event handlers for submit and cancel
       @$el.on('click', submitEl, @triggerSubmit) if submitEl
       @$el.on('click', cancelEl, @triggerCancel) if cancelEl
+      @modalEl.on('focusout', @blurModal)
 
       # set event handlers for views
       for key of @views
@@ -125,6 +131,7 @@
       # remove event handlers for submit and cancel
       @$el.off('click', submitEl, @triggerSubmit) if submitEl
       @$el.off('click', cancelEl, @triggerCancel) if cancelEl
+      @modalEl.off('focusout', @blurModal)
 
       # remove event handlers for views
       for key of @views
@@ -146,6 +153,11 @@
       @triggerCancel() if @outsideElement?.hasClass("#{@prefix}-wrapper") and @active
 
     clickOutsideElement: (e) => @outsideElement = Backbone.$(e.target)
+
+    blurModal: =>
+      setTimeout =>
+        if @active and !Backbone.$.contains(@modalEl.get(0), document.activeElement)
+          @modalEl.focus()
 
     buildTemplate: (template, data) ->
       if typeof template is 'function'
@@ -236,7 +248,7 @@
     triggerSubmit: (e) =>
       e?.preventDefault()
 
-      return if Backbone.$(e.target).is('textarea')
+      return if Backbone.$(e?.target).is('textarea')
 
       return if @beforeSubmit(e) is false if @beforeSubmit
       return if @currentView.beforeSubmit(e) is false if @currentView and @currentView.beforeSubmit
@@ -277,6 +289,7 @@
       removeViews = =>
         @currentView?.remove?()
         @remove()
+        @previousFocus?.focus?()
 
       if @$el.fadeOut and @animate
         @$el.fadeOut(duration: 200)

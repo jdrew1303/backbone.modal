@@ -1,14 +1,14 @@
 (function() {
-  var __hasProp = {}.hasOwnProperty,
-    __extends = function(child, parent) { for (var key in parent) { if (__hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; };
+  var extend = function(child, parent) { for (var key in parent) { if (hasProp.call(parent, key)) child[key] = parent[key]; } function ctor() { this.constructor = child; } ctor.prototype = parent.prototype; child.prototype = new ctor(); child.__super__ = parent.prototype; return child; },
+    hasProp = {}.hasOwnProperty;
 
   describe('Backbone.Modal', function() {
     var modal;
     modal = {};
     beforeEach(function() {
       var backboneView;
-      backboneView = (function(_super) {
-        __extends(backboneView, _super);
+      backboneView = (function(superClass) {
+        extend(backboneView, superClass);
 
         function backboneView() {
           return backboneView.__super__.constructor.apply(this, arguments);
@@ -17,8 +17,8 @@
         return backboneView;
 
       })(Backbone.View);
-      return modal = (function(_super) {
-        __extends(modal, _super);
+      return modal = (function(superClass) {
+        extend(modal, superClass);
 
         function modal() {
           return modal.__super__.constructor.apply(this, arguments);
@@ -106,6 +106,20 @@
         return expect(view.views.length).toEqual(3);
       });
     });
+    describe('#destroy', function() {
+      return it('should restore focus to previously focused element', function() {
+        var $prevFocus, view;
+        $prevFocus = Backbone.$('<button id="prev-focus">');
+        Backbone.$('body').append($prevFocus);
+        Backbone.$('#prev-focus').focus();
+        view = new modal();
+        view.animate = false;
+        view.render();
+        view.destroy();
+        expect(document.activeElement.id).toEqual('prev-focus');
+        return Backbone.$('#prev-focus').remove();
+      });
+    });
     describe('#openAt', function() {
       return it('opens a view at the specified index', function() {
         var view;
@@ -139,10 +153,36 @@
       });
     });
     describe('#render', function() {
-      return it('renders the modal and internal views', function() {
+      it('renders the modal and internal views', function() {
         var view;
         view = new modal();
         return expect(view.render().el instanceof HTMLElement).toBeTruthy();
+      });
+      it('should save a reference to the previously focused element', function() {
+        var expected, view;
+        expected = Backbone.$(document.activeElement);
+        view = new modal();
+        view.render();
+        return expect(view.previousFocus).toEqual(expected);
+      });
+      it('should focus modal div', function() {
+        var view;
+        view = new modal();
+        view.animate = false;
+        Backbone.$('body').append(view.$el);
+        view.render();
+        return expect(document.activeElement).toBe(view.modalEl.get(0));
+      });
+      return it('should return early if already rendered', function() {
+        var view;
+        view = new modal();
+        view.animate = false;
+        view.render();
+        spyOn(view, 'delegateModalEvents');
+        spyOn(view, 'rendererCompleted');
+        view.render();
+        expect(view.delegateModalEvents).not.toHaveBeenCalled();
+        return expect(view.rendererCompleted).not.toHaveBeenCalled();
       });
     });
     describe('#beforeCancel', function() {
@@ -169,6 +209,14 @@
         spyOn(view, 'cancel');
         view.render().$(view.cancelEl).click();
         return expect(view.cancel).toHaveBeenCalled();
+      });
+    });
+    describe('#triggerSubmit', function() {
+      return it('should not throw when called without an event', function() {
+        var view;
+        view = new modal();
+        view.render();
+        return expect(view.triggerSubmit).not.toThrow();
       });
     });
     describe('#beforeSubmit', function() {
@@ -201,11 +249,27 @@
         return expect(view.submit).toHaveBeenCalled();
       });
     });
-    return describe('#clickOutside', function() {
+    describe('#clickOutside', function() {
       return it('should not throw when outsideElement is undefined', function() {
         var view;
         view = new modal();
         return expect(view.clickOutside).not.toThrow();
+      });
+    });
+    return describe('#blurModal', function() {
+      return it('should refocus modal if modal is active and loses focus', function(done) {
+        var $newFocus, view;
+        $newFocus = Backbone.$('<button id="new-focus">');
+        Backbone.$('body').append($newFocus);
+        view = new modal();
+        view.animate = false;
+        view.render();
+        Backbone.$('#new-focus').focus();
+        return setTimeout(function() {
+          expect(document.activeElement).toEqual(view.modalEl.get(0));
+          Backbone.$('#new-focus').remove();
+          return done();
+        }, 10);
       });
     });
   });
